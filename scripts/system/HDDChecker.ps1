@@ -1,3 +1,8 @@
+﻿# FILE: HDDChecker.ps1
+# PURPOSE: Categorized under scripts/system
+# LAST MODIFIED: 2026-08-12
+# MODIFIED BY: Sort-RepoScripts.ps1
+
 <# 
    This is a simple tool for checking HDD Space on network machines
    Thanks for Manas Bhardwaj who wrote this: http://bit.ly/HDDSpaceCheckPowerShell
@@ -41,3 +46,4 @@ foreach ($Server in $ServerName) {
 	"		Free Space D: " + [math]::Round(($disk.FreeSpace / $ConvertToGB),2) + " GB"
 
 }
+
