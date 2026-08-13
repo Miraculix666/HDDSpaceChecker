@@ -32,10 +32,36 @@ This framework provides a **universal, language-agnostic, multi-agent-ready proj
 
 ## 🔗 Workspace Integration & Deployment
 
-- **Single Source of Truth:** ALLES, was in `C:\GitHub\agents_and_prompts\agents\master` definiert ist, gilt global für alle Repositories. Dort wird der Master-Agent zentral gepflegt.
-- **Junction Links in jedem Repo:** In jedem Repository muss im Stammordner ein Junction Link (in der Regel `.agent`) angelegt werden, welcher auf `C:\GitHub\agents_and_prompts\agents\master\.agent` verweist. Dadurch stehen Änderungen am Agenten immer sofort und direkt in allen Repositories zur Verfügung, ohne dass Konfigurationen kopiert werden müssen.
-- **Auto-Clone neuer Repos:** Sobald ein neues Repository remote erstellt wurde, soll es umgehend lokal geklont werden, damit die lokale Workspace-Struktur lückenlos bleibt und der Agent sofort über den Junction Link angebunden werden kann.
+- **No Repository Crossing Links:** Repositories must remain completely independent. Do not use directory junctions or symbolic links to share code, scripts, or configurations between repositories.
+- **Auto-Clone neuer Repos:** Sobald ein neues Repository remote erstellt wurde, soll es umgehend lokal geklont werden, damit die lokale Workspace-Struktur lückenlos bleibt.
 - **Workspace-Dateien:** Jedes Repository MUSS in den globalen Workspace `all.code-workspace` inkludiert sein und zudem über einen eigenen dedizierten Workspace (z.B. `<RepoName>.code-workspace` im zentralen Verzeichnis) verfügen.
+
+---
+
+## 📂 Repository-Level Split Standard
+
+DU AGIERST AB SOFORT STRENG NACH DEM DEZENTRALEN REPOSITORY-SPLIT-STANDARD UND DER NEUEN ORDNERSTRUKTUR UND NAMENSGEBUNG!
+
+Überprüfe und beachte für alle Arbeiten an diesem System folgende unumstößliche Kernregeln:
+
+### 1. Repository-Level Split (Sicherheit & Open-Source-Capability)
+Kein Code- oder Grundsystem-Repository darf sensible Konfigurationen, IP-Adressen, Passwörter oder Hosts-Daten enthalten!
+Jede Domäne ist in ZWEI bis DREI getrennte Repositories unterteilt:
+- **core / infra / ui / app**: Beinhaltet AUSSCHLIESSLICH den Quellcode, Templates, Docker/LXC-Setups und Skripte (Vollständig teilbar/Open-Source).
+- **config**: Beinhaltet AUSSCHLIESSLICH die privaten Einstellungen (Unterteilt in `/global` für systemweite Standards und `/hosts` für spezifische Maschinen/IPs).
+- **backup**: Beinhaltet AUSSCHLIESSLICH historische Datenbank-Dumps, System-Snapshots und Archive.
+
+### 2. Agenten & Prompts Trennung
+Das Repository `agents_and prompts` beinhaltet AUSSCHLIESSLICH die systemweiten Standards (`SYSTEM_WIDE_STANDARD.md`), Ausführungs-Direktiven (`JULES_EXECUTION_DIRECTIVE.md`), Prompt-Templates und Verhaltensregeln der Agenten. Es enthält KEINE Host- oder Infrastruktur-Configs!
+
+### 3. Repo-Namensschema & Domänen
+- **LLM Stack**: `llm_stack_core`, `llm_stack_config`, `llm_stack_backup`
+- **Home Assistant**: `ha_core`, `ha_config`, `ha_backup_full`, `ha_backup_slim`, `ha_addons_ext`
+- **Infrastructure**: `homelab_infra`, `homelab_config`, `proxmox_host_backup`
+- **Agents & Prompts**: `agents_and_prompts`
+
+### 4. Anweisung
+Führe alle Konfigurationsänderungen, Code-Refactorings und Pushes ausschließlich unter Einhaltung dieses Schemas durch. Speichere maschinenspezifische Daten NIEMALS im core/infra Repo, sondern immer im jeweiligen config Repo unter `/hosts/<hostname>_config.yaml`!
 
 ---
 
@@ -152,8 +178,14 @@ Every **5 agent sessions** OR on explicit request, run:
 
 ---
 
-## � Environment Data & Secrets Management
+## ⚙️ Environment Data & Secrets Management
 
+- **Centralized Environment Configs (MANDATORY):** Alle umgebungsspezifischen Konfigurationen (wie URLs, Pfade, Hostnamen, Credentials) MÜSSEN zwingend in einer zentralen Datei gesammelt werden.
+- **Unified Naming & Format:** Die Benennung dieser Datei muss über alle Repositories hinweg einheitlich sein. Als Standard wird `environment.json` (mit Pseudo-Kommentaren) oder `environment.yaml` / `.env` festgelegt.
+- **Self-Documenting Comments:** In der Konfigurationsdatei (oder einer zugehörigen `.example`-Datei) MUSS im Zeilenkommentar immer genug Information stehen, um die Datei direkt ausfüllen zu können. Dies umfasst:
+  - Beispielwerte & Defaults
+  - Dummy-Daten
+  - Klare Anforderungen (z.B. "Das Passwort muss mindestens 8 Zeichen lang sein und Sonderzeichen enthalten")
 - **Separation of Code & Config:** Skripte müssen immer so geschrieben werden, dass das eigentliche Skript veröffentlicht werden kann ("publishable") und **keine privaten Daten** enthält.
 - **Secure Storage (Settings):** Wenn spezifische Einstellungen getroffen werden (Client, Dienstname, Configs), müssen diese sicher, sortiert und getrennt gespeichert werden, sodass Skripte und Einstellungen wiederverwendet werden können.
 - **Environment Inheritance:** Daten zum Environment müssen immer sicher passend abgespeichert werden und vererben sich automatisch auf die Unterordner.
@@ -175,7 +207,34 @@ Every **5 agent sessions** OR on explicit request, run:
 
 ---
 
-## �🔖 Version Management & Auto-Commit Protocol
+## 🧪 Automated Testing Standard (High-Fidelity Mock & Integration Testing)
+
+Every repository and component MUST implement a rigorous, automated, non-elevated, and high-fidelity testing process that adheres to the following principles:
+
+### 1. Separate Script-Driven Test Runner
+- Create a dedicated test runner script (e.g., `tests/Run-FullTestSuite.ps1` or `tests/test_runner.py`) in the `tests/` directory.
+- The test runner must execute fully unattended (non-interactive) without requiring human input or blocking the console.
+
+### 2. High-Fidelity Test Environment Mocking
+- **No-Privilege Mode Support:** Provide a clean mock-bypass toggle (e.g., `$global:BypassAdminCheck` or `$env:BYPASS_ADMIN_CHECK`) to safely bypass any required Administrator or system elevation checks.
+- **Unattended Console Detection:** Ensure all interactive prompts, confirmation checks (e.g., "J/N" menus), and GUI prompts are bypassed under test/automation mode (e.g., overriding raw interactive console checks).
+- **Mocking System/Network Actions:** Instead of failing on remote system calls, Active Directory pings, or SMTP transports, intercept them under test bypass mode to output realistic success logs and simulated return states.
+
+### 3. Step-by-Step Function & Scenario Coverage
+- **Step-by-Step Function Testing:** Separately verify each independent module, function, and parameter set of the codebase.
+- **Dynamic Log Verification (`GenerateFromLog`):** Test the full roundtrip of state changes by ensuring outputs of a provisioning step are dynamically parsed and fed into downstream query/replay steps (e.g., re-running from logs).
+- **Component and Standalone Testing:** Add tests for all supplementary templates, dashboards, and CLI session launchers (both dry-run summaries and connectivity-only modes).
+
+### 4. Dummy/Local Data Requirements
+- **Always Online Test Targets:** Use dummy/local test targets (e.g., `127.0.0.1` and `localhost` in `Clients_Test.csv`) for connection validation to ensure they are always online and reachable.
+- **Controlled Test Dataset:** Maintain a representative dummy CSV/data set (e.g., `Users_Test_5.csv` representing participants, teachers, and admins) to exercise all branches.
+
+### 5. Strict Error Catching and Validation
+- **Exit Code Verification:** Ensure that non-zero exit codes or script exit statuses (`$LASTEXITCODE`) are intercepted inside the test block and thrown as terminating errors so that failures are caught.
+
+---
+
+## 🔖 Version Management & Auto-Commit Protocol
 
 ### Pflege von `version.json` und `package.json`
 
@@ -263,6 +322,42 @@ If project context is lost, execute in order:
 ☐ 8. Read locks/LOCK_REGISTRY.md for history
 ☐ 9. Proceed with Step 1 of Agent Session Protocol above
 ```
+
+---
+
+## 📐 Project Growth & Maturity Review Protocol
+
+### 1. Triggers — Wann wird ein Growth Review durchgeführt?
+Ein Growth Review wird durchgeführt bei:
+1. **Jeder 10. Agent-Session** (ergänzend zum 5-Session Optimization Protocol)
+2. **Expliziter Anforderung** durch den User
+3. **Erreichen folgender Schwellwerte** (automatisch im Session Start-Check):
+
+| Metrik | Schwellwert | Empfohlene Aktion |
+|---|---|---|
+| **Dateien im Repo** | > 20 Dateien (ohne `.agent/`, `.git/`) | Ordnerstruktur prüfen, `src/` o. Ä. einführen |
+| **LOC einer Datei** | > 500 Zeilen | Aufteilen in Module/Funktionen |
+| **LOC gesamt** | > 2.000 Zeilen | Architektur-Review, Package-Struktur prüfen |
+| **Plattformen** | > 1 OS-Ziel (Win + Linux) | Cross-Plattform Abstraktion (Docker, Polyglot) |
+| **Sprachen im Repo** | > 2 Sprachen | Primärsprache definieren, Build-System einführen |
+| **Externe Deps** | > 5 ohne Deklaration | Package Manager einführen (`requirements.txt`, `package.json`) |
+| **Inline-Code** | Shell/PowerShell mit > 20 Zeilen Python/C/SQL | Script extrahieren |
+| **Test-Abdeckung** | 0 Tests bei > 500 LOC | Test-Framework einführen (Pester, pytest) |
+
+### 2. Review-Checkliste
+Der Agent prüft bei jedem Growth Review:
+- **Scope**: Ist der Projekt-Scope noch klar definiert oder wächst das Tool zu einer All-in-One Suite?
+- **Architektur**: Ist die Verzeichnisstruktur für die Projektgröße noch angemessen?
+- **Sprachen & Plattform**: Ist die gewählte Sprache noch optimal? (z.B. Migration von Bash zu Python bei komplexer JSON/Rest-Logik).
+- **Dependencies**: Sind alle externen Pakete deklariert und isoliert (venv, node_modules)?
+- **Qualität & Tests**: Gibt es einen automatisierten Test-Runner (unattended, non-interactive)?
+- **Dokumentation**: Ist die README aktuell? Gibt es ein CHANGELOG bei > 5 Releases?
+
+### 3. Projekt-Reifegrade (Maturity Levels)
+- 🟢 **L0 (Einzelscript)**: 1 Datei, < 200 LOC. Erfordert: Header-Kommentar + standardisiertes Error Handling.
+- 🟡 **L1 (Multi-File Tool)**: 2–10 Dateien, < 1.000 LOC. Erfordert: `README.md`, `src/` Ordner, `justfile` für grundlegende Abläufe.
+- 🟠 **L2 (Strukturiertes Projekt)**: 10–30 Dateien, < 5.000 LOC, Test-Suite. Erfordert: `.agent/`, `docs/`, `tests/`, `CHANGELOG.md`, Versionierung.
+- 🔴 **L3 (Package / Service)**: 30+ Dateien, APIs, Multi-Plattform. Erfordert: Versionierung (`version.json`), Build-System, Docker, CI/CD Pipeline.
 
 ---
 

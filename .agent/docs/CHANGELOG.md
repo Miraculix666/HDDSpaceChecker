@@ -13,6 +13,8 @@
 > Changes staged for next release
 
 ### Added
+### Added
+- Added optional counter entity input to Tibber automations (`tibber_smart_device.yaml`, `tibber_pool_pump.yaml`, `tibber_pool_pump_emergency.yaml`).
 - (nothing yet)
 
 ---
@@ -91,3 +93,12 @@
 
 [Unreleased]: https://github.com/your-org/your-repo/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/your-org/your-repo/releases/tag/v1.0.0
+## [Unreleased] - 2026-07-04
+### Changed
+- `blueprints/automation/tibber_smart_device.yaml`: Replaced deprecated `service:` syntax with modern `action:` syntax.
+- `blueprints/scripts/universal_notification.yaml`: Replaced deprecated `notify.notify` and `notify.alexa_media` services with `notify.send_message` targeting corresponding entity_ids.
+## [Unreleased]
+
+### Added
+- Added `blueprints/automation/tibber_pool_pump.yaml` for smart pool pump automation based on Tibber prices.
+- Added `blueprints/automation/tibber_pool_pump_emergency.yaml` for fallback pool pump scheduling.

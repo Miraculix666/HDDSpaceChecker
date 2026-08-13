@@ -10,10 +10,9 @@
 
 set -euo pipefail
 
-RED='\033[0;31m'; YELLOW='\033[1;33m'; GREEN='\033[0;32m'
-BLUE='\033[0;34m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
+source "$(dirname "${BASH_SOURCE[0]}")/colors.sh"
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 
 echo -e "${BOLD}${CYAN}"
@@ -33,15 +32,15 @@ if command -v md5sum &>/dev/null || command -v md5 &>/dev/null; then
   HASH_CMD="md5sum"
   command -v md5 &>/dev/null && HASH_CMD="md5 -r"
   
-  DUPES=$(find . -not -path './.git/*' -type f -exec $HASH_CMD {} \; 2>/dev/null | \
-    sort | awk 'BEGIN{p=""} {if($1==p){print $2} p=$1}' | head -20)
+  DUPES=$(find . -not -path './.git/*' -type f -exec $HASH_CMD {} + 2>/dev/null | \
+    sort | awk 'BEGIN{p=""} {if($1==p){print $2} p=$1}' | head -20 || true)
   
   if [[ -z "$DUPES" ]]; then
     echo -e "${GREEN}✅ No duplicate files detected${NC}"
   else
     echo -e "${YELLOW}🟡 Potential duplicate files:${NC}"
     echo "$DUPES" | while read -r f; do echo "   → $f"; done
-    ((ISSUES++))
+    ((ISSUES++)) || true
     PROPOSALS+=("Review and remove duplicate files listed above")
   fi
 else
@@ -52,7 +51,7 @@ fi
 echo ""
 echo -e "${BOLD}[2/5] 📏 Large File Detection (>50KB)${NC}"
 echo "$(printf '─%.0s' {1..50})"
-LARGE_FILES=$(find . -not -path './.git/*' -type f -size +50k 2>/dev/null | head -20)
+LARGE_FILES=$(find . -not -path './.git/*' -type f -size +50k 2>/dev/null | head -20 || true)
 if [[ -z "$LARGE_FILES" ]]; then
   echo -e "${GREEN}✅ No unexpectedly large files${NC}"
 else
@@ -61,7 +60,7 @@ else
     SIZE=$(du -sh "$f" | cut -f1)
     echo "   → $f ($SIZE)"
   done
-  ((ISSUES++))
+  ((ISSUES++)) || true
   PROPOSALS+=("Review large files — consider splitting or adding to .gitignore")
 fi
 
@@ -70,13 +69,13 @@ echo ""
 echo -e "${BOLD}[3/5] 📁 Empty Directory Check${NC}"
 echo "$(printf '─%.0s' {1..50})"
 EMPTY_DIRS=$(find . -not -path './.git/*' -type d -empty 2>/dev/null | \
-  grep -v "^.$" | grep -v "node_modules" | head -20)
+  grep -v "^.$" | grep -v "node_modules" | head -20 || true)
 if [[ -z "$EMPTY_DIRS" ]]; then
   echo -e "${GREEN}✅ No empty directories${NC}"
 else
   echo -e "${YELLOW}🟡 Empty directories (add .gitkeep or remove):${NC}"
   echo "$EMPTY_DIRS" | while read -r d; do echo "   → $d"; done
-  ((ISSUES++))
+  ((ISSUES++)) || true
   PROPOSALS+=("Add .gitkeep to empty directories or remove them")
 fi
 
@@ -89,12 +88,12 @@ ALL_GOOD=true
 for doc in "${REQUIRED_DOCS[@]}"; do
   if [[ -f "$doc" ]]; then
     # Check last modified vs git log
-    LAST_GIT=$(git log -1 --format="%ci" -- "$doc" 2>/dev/null | cut -d' ' -f1 || echo "unknown")
+    LAST_GIT=$(git log -1 --format="%ci" -- "$doc" 2>/dev/null | cut -d' ' -f1 || true)
     echo -e "  ${GREEN}✅ $doc${NC} (last commit: $LAST_GIT)"
   else
     echo -e "  ${RED}❌ MISSING: $doc${NC}"
     ALL_GOOD=false
-    ((ISSUES++))
+    ((ISSUES++)) || true
     PROPOSALS+=("Recreate missing documentation file: $doc")
   fi
 done
@@ -105,7 +104,8 @@ echo -e "${BOLD}[5/5] 🔄 Consolidation Session Counter Update${NC}"
 echo "$(printf '─%.0s' {1..50})"
 CONTEXT_FILE=".agent/memory/CONTEXT.md"
 if [[ -f "$CONTEXT_FILE" ]]; then
-  CURRENT=$(grep -o "Sessions Since Last Consolidation Review.*" "$CONTEXT_FILE" | grep -o '[0-9]*' | head -1 || echo "0")
+  CURRENT=$(sed -n '/Sessions Since Last Consolidation Review/{s/[^0-9]*\([0-9][0-9]*\).*/\1/p;q;}' "$CONTEXT_FILE")
+  CURRENT="${CURRENT:-0}"
   echo -e "${BLUE}ℹ️ Previous count: $CURRENT${NC}"
   if [[ "${1:-}" != "--report-only" ]]; then
     sed -i.bak "s/Sessions Since Last Consolidation Review.*/Sessions Since Last Consolidation Review | 0/" "$CONTEXT_FILE" && rm -f "${CONTEXT_FILE}.bak"

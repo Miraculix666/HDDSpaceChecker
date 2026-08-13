@@ -3,7 +3,7 @@
 # FILE: scripts/health-check.sh
 # PURPOSE: Validate framework integrity — all docs in sync,
 #          no stale locks, branches configured, dump clear
-# DEPENDS ON: .agent/locks/.locked, all docs/
+# DEPENDS ON: .agent/locks/.locked, all .agent/docs/
 # DEPENDED ON BY: CI/CD pipelines, Maintainer agents (R-05)
 # LAST MODIFIED: See git log
 # ============================================================
@@ -11,17 +11,16 @@
 set -euo pipefail
 
 # ── Colours & Symbols ────────────────────────────────────────
-RED='\033[0;31m'; YELLOW='\033[1;33m'; GREEN='\033[0;32m'
-BLUE='\033[0;34m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
+source "$(dirname "${BASH_SOURCE[0]}")/colors.sh"
 
 OK="✅"; WARN="🟡"; FAIL="❌"; INFO="🔵"; LOCK="🔒"
 
 PASS=0; WARNINGS=0; FAILURES=0
 
 # ── Helpers ──────────────────────────────────────────────────
-pass()  { echo -e "${GREEN}${OK} $1${NC}"; ((PASS++)); }
-warn()  { echo -e "${YELLOW}${WARN} $1${NC}"; ((WARNINGS++)); }
-fail()  { echo -e "${RED}${FAIL} $1${NC}"; ((FAILURES++)); }
+pass()  { echo -e "${GREEN}${OK} $1${NC}"; ((PASS++)) || true; }
+warn()  { echo -e "${YELLOW}${WARN} $1${NC}"; ((WARNINGS++)) || true; }
+fail()  { echo -e "${RED}${FAIL} $1${NC}"; ((FAILURES++)) || true; }
 info()  { echo -e "${BLUE}${INFO} $1${NC}"; }
 header(){ echo -e "\n${BOLD}${CYAN}$1${NC}"; echo "$(printf '─%.0s' {1..55})"; }
 
@@ -33,7 +32,7 @@ echo "╠═══════════════════════�
 echo "║  $(date '+%Y-%m-%d %H:%M:%S')                          ║"
 echo "╚══════════════════════════════════════════════╝${NC}"
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 
 # ── [1/6] Required Files ─────────────────────────────────────
@@ -51,12 +50,12 @@ REQUIRED_FILES=(
   ".agent/locks/LOCK_REGISTRY.md"
   ".agent/memory/CONTEXT.md"
   ".agent/memory/DECISIONS.md"
-  "docs/CHANGELOG.md"
-  "docs/DEPENDENCIES.md"
-  "docs/TESTS.md"
-  "docs/ARCHITECTURE.md"
-  "docs/SOURCES.md"
-  "dump/README.md"
+  ".agent/docs/CHANGELOG.md"
+  ".agent/docs/DEPENDENCIES.md"
+  ".agent/docs/TESTS.md"
+  ".agent/docs/ARCHITECTURE.md"
+  ".agent/docs/SOURCES.md"
+  ".agent/dump/README.md"
 )
 for f in "${REQUIRED_FILES[@]}"; do
   if [[ -f "$f" ]]; then
@@ -72,23 +71,33 @@ LOCK_FILE=".agent/locks/.locked"
 if command -v python3 &>/dev/null; then
   if python3 -c "import json; json.load(open('$LOCK_FILE'))" 2>/dev/null; then
     pass ".locked is valid JSON"
-    LOCK_COUNT=$(python3 -c "import json; data=json.load(open('$LOCK_FILE')); print(len(data.get('locks', [])))")
-    HARD_COUNT=$(python3 -c "import json; data=json.load(open('$LOCK_FILE')); print(sum(1 for l in data.get('locks',[]) if l.get('type')=='HARD'))")
-    SOFT_COUNT=$(python3 -c "import json; data=json.load(open('$LOCK_FILE')); print(sum(1 for l in data.get('locks',[]) if l.get('type')=='SOFT'))")
-    info "Total locks: $LOCK_COUNT (${RED}HARD: $HARD_COUNT${NC}${BLUE}, SOFT: $SOFT_COUNT${NC})"
-    # Check for stale SOFT locks
     NOW=$(date +%s)
-    STALE=$(python3 -c "
+    mapfile -t stats <<< "$(python3 -c "
 import json, datetime
-data = json.load(open('$LOCK_FILE'))
-stale = []
-for l in data.get('locks', []):
-    if l.get('type') in ('SOFT', 'REQ') and l.get('expires_at'):
-        exp = datetime.datetime.fromisoformat(l['expires_at'].replace('Z','+00:00'))
-        if exp.timestamp() < $NOW:
-            stale.append(l['id'])
-print(','.join(stale) if stale else '')
-")
+try:
+    with open('$LOCK_FILE') as f:
+        data = json.load(f)
+    locks = data.get('locks', [])
+    hard = sum(1 for l in locks if l.get('type') == 'HARD')
+    soft = sum(1 for l in locks if l.get('type') == 'SOFT')
+    stale = []
+    for l in locks:
+        if l.get('type') in ('SOFT', 'REQ') and l.get('expires_at'):
+            exp = datetime.datetime.fromisoformat(l['expires_at'].replace('Z','+00:00'))
+            if exp.timestamp() < $NOW:
+                stale.append(l['id'])
+    print(len(locks))
+    print(hard)
+    print(soft)
+    print(','.join(stale))
+except Exception:
+    pass
+")"
+    LOCK_COUNT="${stats[0]:-0}"
+    HARD_COUNT="${stats[1]:-0}"
+    SOFT_COUNT="${stats[2]:-0}"
+    STALE="${stats[3]:-}"
+    info "Total locks: $LOCK_COUNT (${RED}HARD: $HARD_COUNT${NC}${BLUE}, SOFT: $SOFT_COUNT${NC})"
     if [[ -z "$STALE" ]]; then
       pass "No stale locks detected"
     else
@@ -103,12 +112,12 @@ fi
 
 # ── [3/6] Dump Inbox ─────────────────────────────────────────
 header "[3/6] 📥 Dump Inbox Check"
-INBOX_FILES=$(find dump/inbox/ -type f 2>/dev/null | wc -l)
+INBOX_FILES=$(find .agent/dump/inbox/ -type f 2>/dev/null | wc -l)
 if [[ "$INBOX_FILES" -eq 0 ]]; then
   pass "Dump inbox is empty 🟢"
 else
   warn "Dump inbox has $INBOX_FILES file(s) awaiting processing"
-  find dump/inbox/ -type f | while read -r f; do
+  find .agent/dump/inbox/ -type f | while read -r f; do
     echo -e "     ${YELLOW}→ $f${NC}"
   done
   echo -e "  ${YELLOW}Run: bash scripts/dump-processor.sh${NC}"
@@ -154,7 +163,7 @@ fi
 
 # ── [6/6] Doc Headers Spot Check ─────────────────────────────
 header "[6/6] 📝 Documentation Spot Check"
-for f in docs/CHANGELOG.md docs/DEPENDENCIES.md docs/TESTS.md; do
+for f in .agent/docs/CHANGELOG.md .agent/docs/DEPENDENCIES.md .agent/docs/TESTS.md; do
   if grep -q "LAST MODIFIED" "$f" 2>/dev/null; then
     pass "$f has required header fields"
   else

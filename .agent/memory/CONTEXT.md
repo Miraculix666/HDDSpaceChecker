@@ -30,7 +30,6 @@
 
 | Agent ID | Role | Branch | Files | Started | Last Ping |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
 
 *Update this table on session start and end.*
 
@@ -39,6 +38,19 @@
 ## 📋 Recent Work Log
 
 > Summarise what was done in each session. Newest first.
+
+### 2026-06-16 — repo-cleanup-scrub
+- ✅ Reorganized general scripts in `Skripts-and-tools` under category folders (AD, System, User, Network) and resolved naming to PascalCase.
+- ✅ Cleaned up all root duplicates in `scripts-and-tools-pol` and moved obsolete `setup.ps1` to `archive/`.
+- ✅ Consolidated L-Kennung query scripts into `Get-LKennungUser.ps1`.
+- ✅ Consolidated L-Kennung report/table scripts into `New-LKennungReport.ps1`.
+- ✅ Consolidated DNS setup and repair scripts into `Setup-DnsServer.ps1`.
+- ✅ Moved `win11-hardening` to `Skripts-and-tools` and established a Windows Directory Junction back in `Schul-OPSI`.
+- ✅ Extracted and migrated `extract_opsi.ps1` to `Schul-OPSI\tools\Extract-OpsiData.ps1`.
+- ✅ Implemented `Import-Environment.ps1` config loader and `environment.json.example` configuration template.
+- ✅ Systematically scrubbed all AI/agent references and `Miraculix666` usernames, replacing them with standard systems administration headers.
+- ✅ Generated `README.md` and `CHANGELOG.md` files at the root level and in all category subdirectories for all three repositories.
+- ✅ Ran full syntax audits and verified directory junctions and JSON credentials loader functionality.
 
 ### 2026-02-23 — system-init
 - ✅ Framework scaffolding created
@@ -79,3 +91,11 @@ On session end:
 ---
 
 *This file is the living heartbeat of the project. Keep it accurate.*
+
+## 2026-07-12
+- Added optional counter entity input to Tibber automations (`tibber_smart_device.yaml`, `tibber_pool_pump.yaml`, `tibber_pool_pump_emergency.yaml`).
+## 2026-07-04
+- Addressed issue with tibber price fetching automation and related scripts.
+- Updated `tibber_smart_device.yaml` to use modern `action:` syntax.
+- Updated `universal_notification.yaml` to use modern `notify.send_message` action instead of deprecated `notify.*` services.
+- Removed hardcoded personal device entity_id `notify.mobile_app_marius_mi_15t_pro` from `blueprints/scripts/universal_notification.yaml`.

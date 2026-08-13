@@ -9,8 +9,7 @@
 
 set -euo pipefail
 
-RED='\033[0;31m'; YELLOW='\033[1;33m'; GREEN='\033[0;32m'
-BLUE='\033[0;34m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
+source "$(dirname "${BASH_SOURCE[0]}")/colors.sh"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOCK_FILE="$REPO_ROOT/.agent/locks/.locked"
@@ -47,6 +46,8 @@ with open(".agent/locks/.locked") as f:
 locks = data.get("locks", [])
 if not locks:
     print("✅ No active locks")
+    last_updated = data.get('last_updated', '?')
+    print(f'\n\033[0;34mLast updated: {last_updated}\033[0m')
     sys.exit(0)
 
 now = datetime.datetime.now(datetime.timezone.utc)
@@ -72,9 +73,9 @@ for l in locks:
         colour = "\033[0;34m"
     
     print(f"{colour}{lock_id:<12} {ltype:<6} {fpath:<35} {agent:<20} {expires}\033[0m")
+last_updated = data.get('last_updated', '?')
+print(f'\n\033[0;34mLast updated: {last_updated}\033[0m')
 EOF
-  echo ""
-  echo -e "${BLUE}Last updated: $(python3 -c "import json; d=json.load(open('.agent/locks/.locked')); print(d.get('last_updated','?'))")${NC}"
 }
 
 cmd_lock() {
@@ -150,9 +151,11 @@ with open(".agent/locks/.locked") as f:
     data = json.load(f)
 
 found = None
-for l in data["locks"]:
+found_idx = -1
+for i, l in enumerate(data["locks"]):
     if l["id"] == lock_id:
         found = l
+        found_idx = i
         break
 
 if not found:
@@ -167,7 +170,7 @@ if found["locked_by"] != agent:
     print(f"\033[1;33m🟡 Lock owned by {found['locked_by']} — use handover protocol\033[0m")
     sys.exit(1)
 
-data["locks"].remove(found)
+del data["locks"][found_idx]
 now = datetime.datetime.now(datetime.timezone.utc).isoformat()
 data["last_updated"] = now
 data["updated_by"] = agent
@@ -205,9 +208,11 @@ with open(".agent/locks/.locked") as f:
     data = json.load(f)
 
 found = None
-for l in data["locks"]:
+found_idx = -1
+for i, l in enumerate(data["locks"]):
     if l["id"] == lock_id:
         found = l
+        found_idx = i
         break
 
 if not found:
@@ -225,7 +230,7 @@ if found.get("expires_at"):
         print(f"\033[1;33m🟡 Lock not stale yet (expires {exp.isoformat()}) — use release instead\033[0m")
         sys.exit(1)
 
-data["locks"].remove(found)
+del data["locks"][found_idx]
 data["last_updated"] = now.isoformat()
 data["updated_by"] = "maintainer-stale-clear"
 
@@ -267,6 +272,10 @@ EOF
 
 cmd_history() {
   local last="${2:-10}"
+  if ! [[ "$last" =~ ^[0-9]+$ ]]; then
+    echo -e "${RED}❌ Invalid history count: must be a positive integer${NC}" >&2
+    exit 1
+  fi
   echo -e "${BOLD}${CYAN}📜 Lock Registry (last $last entries)${NC}"
   grep -A 10 "^### " "$REGISTRY_FILE" | tail -$(( last * 12 )) || echo "No history yet"
 }
